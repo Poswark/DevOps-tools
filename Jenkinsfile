@@ -7,8 +7,7 @@ pipeline {
     }
 
     environment {
-        //API_KEY = credentials('mi-api-key')
-        API_KEY = 'S3CR3T-KEY'  
+        API_KEY = 'S3CR3T-KEY'  // Aquí puedes usar 'credentials' si tienes configurada una credencial en Jenkins
         API_URL = 'http://pensive_kapitsa.orb.local:5000/check-connection'
     }
 
@@ -31,10 +30,9 @@ pipeline {
 
                     if (response == '200') {
                         echo "Conexión exitosa a ${HOST}:${PORT}"
-                    } if (response == '403') {
+                    } else if (response == '403') {
                         error "No tienes la llave correcta, por favor contacta al administrador del servicio"
-                    }
-                    else {
+                    } else {
                         error "Error al conectar a ${HOST}:${PORT}. Código de estado: ${response}. Documentation: https://localhost:1234/docs"
                     }
                 }
