@@ -1,1 +1,4 @@
 Flask
+pytest
+pytest-mock
+gunicorn
