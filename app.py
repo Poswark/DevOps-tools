@@ -1,9 +1,12 @@
 from flask import Flask, request, jsonify
-import socket
+import socket, os
 
 app = Flask(__name__)
 
-API_KEY = "S3CR3T-KEY"
+#configmap
+URL = os.getenv("URL")  
+#secreto
+API_KEY = os.getenv("API_KEY")
 
 def check_connection(host, port, timeout=10):
     try:
@@ -34,7 +37,7 @@ def check_connection_endpoint():
     if connection_status:
         return jsonify({'message': f'Conexion exitosa a {host} en el puerto {port}'}), 200
     else:
-        return jsonify({'message': f'Error al conectar a {host} por el puerto {port}', 'Documentacion': 'https://www.google.com' }), 400
+        return jsonify({'message': f'Error al conectar a {host} por el puerto {port}', 'Documentacion': URL }), 400
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)

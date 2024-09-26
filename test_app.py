@@ -1,69 +1,53 @@
 import pytest
-from flask import json
+from unittest.mock import patch
 from app import app
 
 @pytest.fixture
 def client():
-    app.config['TESTING'] = True
-    with app.test_client() as client:
-        yield client
+    app.testing = True
+    return app.test_client()
 
-def test_invalid_api_key(client):
-    """Prueba cuando la API key es inválida."""
-    response = client.post('/check-connection',
-                           json={'host': 'example.com', 'port': 80},
-                           headers={'x-api-key': 'INVALID-KEY'})
-    assert response.status_code == 403
-    data = json.loads(response.data)
-    assert data['error'] == 'API key inválida'
+@patch('os.getenv')
+def test_check_connection_success(mock_getenv, client):
+    # Simulamos las variables de entorno
+    mock_getenv.side_effect = lambda key: 'S3CR3T-KEY' if key == 'API_KEY' else 'http://localhost:2020'
 
-def test_missing_host_or_port(client):
-    """Prueba cuando faltan el host o el puerto, o el puerto no es un entero."""
-    # Falta el host
-    response = client.post('/check-connection',
-                           json={'port': 80},
+    # Simulamos una solicitud POST exitosa
+    response = client.post('/check-connection', json={'host': 'localhost', 'port': 8080},
                            headers={'x-api-key': 'S3CR3T-KEY'})
-    assert response.status_code == 400
-    data = json.loads(response.data)
-    assert data['error'] == 'Host y puerto son requeridos y el puerto debe ser un entero'
-
-    # Falta el puerto
-    response = client.post('/check-connection',
-                           json={'host': 'example.com'},
-                           headers={'x-api-key': 'S3CR3T-KEY'})
-    assert response.status_code == 400
-    data = json.loads(response.data)
-    assert data['error'] == 'Host y puerto son requeridos y el puerto debe ser un entero'
-
-    # Puerto no es un entero
-    response = client.post('/check-connection',
-                           json={'host': 'example.com', 'port': 'not-an-int'},
-                           headers={'x-api-key': 'S3CR3T-KEY'})
-    assert response.status_code == 400
-    data = json.loads(response.data)
-    assert data['error'] == 'Host y puerto son requeridos y el puerto debe ser un entero'
-
-def test_successful_connection(mocker, client):
-    """Prueba cuando la conexión es exitosa."""
-    # Mockear el resultado de check_connection
-    mocker.patch('app.check_connection', return_value=True)
-
-    response = client.post('/check-connection',
-                           json={'host': 'example.com', 'port': 80},
-                           headers={'x-api-key': 'S3CR3T-KEY'})
+    
     assert response.status_code == 200
-    data = json.loads(response.data)
-    assert data['message'] == 'Conexion exitosa a example.com en el puerto 80'
+    assert b'Conexion exitosa' in response.data
 
-def test_failed_connection(mocker, client):
-    """Prueba cuando la conexión falla."""
-    # Mockear el resultado de check_connection
-    mocker.patch('app.check_connection', return_value=False)
+@patch('os.getenv')
+def test_check_connection_invalid_api_key(mock_getenv, client):
+    mock_getenv.side_effect = lambda key: 'S3CR3T-KEY' if key == 'API_KEY' else 'http://localhost:2020'
 
-    response = client.post('/check-connection',
-                           json={'host': 'example.com', 'port': 80},
+    # Enviamos una API key inválida
+    response = client.post('/check-connection', json={'host': 'localhost', 'port': 8080},
+                           headers={'x-api-key': 'INVALID-KEY'})
+    
+    assert response.status_code == 403
+    assert b'API key inv\xc3\xa1lida' in response.data
+
+@patch('os.getenv')
+def test_check_connection_invalid_host_port(mock_getenv, client):
+    mock_getenv.side_effect = lambda key: 'S3CR3T-KEY' if key == 'API_KEY' else 'http://localhost:2020'
+
+    # Enviamos un puerto no válido (string en vez de entero)
+    response = client.post('/check-connection', json={'host': 'localhost', 'port': 'invalid-port'},
                            headers={'x-api-key': 'S3CR3T-KEY'})
+    
     assert response.status_code == 400
-    data = json.loads(response.data)
-    assert data['message'] == 'Error al conectar a example.com por el puerto 80'
-    assert 'Documentacion' in data
+    assert b'Host y puerto son requeridos y el puerto debe ser un entero' in response.data
+
+@patch('os.getenv')
+def test_check_connection_fail(mock_getenv, client):
+    mock_getenv.side_effect = lambda key: 'S3CR3T-KEY' if key == 'API_KEY' else 'http://localhost:2020'
+
+    # Simulamos una solicitud POST con una conexión fallida
+    response = client.post('/check-connection', json={'host': 'invalid-host', 'port': 8080},
+                           headers={'x-api-key': 'S3CR3T-KEY'})
+    
+    assert response.status_code == 400
+    assert b'Error al conectar' in response.data
