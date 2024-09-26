@@ -6,13 +6,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     netcat-traditional \
     && rm -rf /var/lib/apt/lists/*
 
+COPY . /app
 WORKDIR /app
 
-COPY requirements.txt /app/
-
 RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install pytest coverage
+RUN coverage run -m pytest
 
-COPY . /app
 
 RUN useradd -m appuser
 RUN chown -R appuser:appuser /app
@@ -20,9 +20,9 @@ RUN chown -R appuser:appuser /app
 USER appuser
 
 
-EXPOSE 5000
+EXPOSE 8080
 
-ENTRYPOINT ["gunicorn", "--bind", "0.0.0.0:5000", "app:app", "--workers", "2", "--timeout", "60", "--access-logfile", "-", "--error-logfile", "-"]
+ENTRYPOINT ["gunicorn", "--bind", "0.0.0.0:8080", "app:app", "--workers", "2", "--timeout", "60", "--access-logfile", "-", "--error-logfile", "-"]
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD curl -f http://localhost:5000/ || exit 1
+  CMD curl -f http://localhost:8080/ || exit 1
