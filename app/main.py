@@ -3,13 +3,16 @@ from pydantic import BaseModel
 import socket
 import os
 import logging
+from httpx import Client, WSGITransport
+
+app = FastAPI()
+client = Client(transport=WSGITransport(app=app)) 
 
 log_format = "%(asctime)s - %(levelname)s - %(module)s - %(lineno)d - %(message)s"
 date_format = "%Y-%m-%d %H:%M:%S"
 logging.basicConfig(format=log_format, datefmt=date_format, level=logging.INFO)
 
-URL = os.getenv("URL")
-app = FastAPI()
+url = os.getenv("URL")
 
 class NsLookupRequest(BaseModel):
     host: str
@@ -42,12 +45,12 @@ def get_api_key(x_api_key: str = Header(...)):
 async def check_connection(request: ConnectionRequest, api_key: str = Depends(get_api_key)):
     logging.info(f"Recibida solicitud de conexión para {request.host}:{request.port}")
     connection_status = check_socket_connection(request.host, request.port)
-    
+
     if connection_status:
         return {"message": f"Conexión exitosa a {request.host} en el puerto {request.port}"}
     else:
         error_message = (f"Error al conectar a {request.host} por el puerto {request.port}. "
-                         f"Por favor, revisar la documentación: {URL}")
+                         f"Por favor, revisar la documentación: {url}")
         logging.error(error_message)
         raise HTTPException(status_code=408, detail=error_message)
 
