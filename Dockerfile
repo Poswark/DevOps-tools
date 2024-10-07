@@ -7,17 +7,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     netcat-traditional \
     && rm -rf /var/lib/apt/lists/*
 
-COPY . /app
+
 WORKDIR /app
+COPY . /app
+
 
 RUN pip install --no-cache-dir -r requirements.txt
 RUN pip install pytest coverage
-RUN coverage run -m pytest
+RUN python3 -m coverage run -m pytest
+RUN coverage report  -m 
 
-RUN useradd -m appuser
-RUN chown -R appuser:appuser /app
-
+RUN useradd -m -d /home/appuser -s /bin/bash appuser 
+RUN chown appuser app
 USER appuser
+
+
 
 EXPOSE 8080
 
