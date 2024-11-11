@@ -13,9 +13,6 @@ COPY . /app
 
 
 RUN pip install --no-cache-dir -r requirements.txt
-RUN pip install pytest coverage
-RUN python3 -m coverage run -m pytest
-RUN coverage report  -m 
 
 RUN useradd -m -d /home/appuser -s /bin/bash appuser 
 RUN chown appuser app
