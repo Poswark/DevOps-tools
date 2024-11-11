@@ -58,7 +58,6 @@ jobs:
       - name: Build Docker image
         run: docker build -t poswark/link-connection-api:${{ env.IMAGE_VERSION }} .
 
-      # Instala Trivy y ejecuta el escaneo
       - name: Install Trivy
         run: |
           sudo apt-get update
@@ -69,8 +68,8 @@ jobs:
       - name: Scan Docker image with Trivy
         run: |
           # Escanea la imagen en busca de vulnerabilidades y falla si encuentra de nivel HIGH o CRITICAL
-          trivy image --exit-code 1 --severity HIGH,CRITICAL poswark/link-conection:${{ env.IMAGE_VERSION }}
+          trivy image --exit-code 1 --severity HIGH,CRITICAL poswark/link-connection-api:${{ env.IMAGE_VERSION }}
 
       - name: Push Docker image with version
-        if: success()  # Solo sube la imagen si el escaneo de Trivy pasa sin vulnerabilidades de nivel alto o crítico
-        run: docker push poswark/link-conection:${{ env.IMAGE_VERSION }}
+        if: success()  
+        run: docker push poswark/link-connection-api:${{ env.IMAGE_VERSION }}
