@@ -8,3 +8,5 @@
 	•	uvicorn.workers.UvicornWorker: Si utilizas ASGI en lugar de WSGI.
 
 docker run  -d -p 8080:8080  --env API_KEY=key --env URL=http://localhost --name link-connection link-connection:1.0.4
+
+[![Python application](https://github.com/Poswark/link-connection-api/actions/workflows/python-app.yml/badge.svg)](https://github.com/Poswark/link-connection-api/actions/workflows/python-app.yml)
