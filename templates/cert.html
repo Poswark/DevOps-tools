@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Certificados · Atlas{% endblock %}
+{% block body %}
+<div class="page-head">
+  <a class="back" href="/">← Inicio</a>
+  <h1>Certificados a una línea</h1>
+  <p>Pega el PEM completo (puede incluir la cadena) y obtén la versión en una sola línea.</p>
+</div>
+<form class="card" method="post">
+  <label>Nombre de la llave (para jq)</label>
+  <input name="key_name" placeholder="tls.crt" value="{{ form.get('key_name','') }}">
+  <label>Certificado PEM</label>
+  <textarea name="cert" placeholder="-----BEGIN CERTIFICATE-----&#10;...&#10;-----END CERTIFICATE-----">{{ form.get('cert','') }}</textarea>
+  <button type="submit">Convertir</button>
+</form>
+{% if error %}<div class="card err"><p class="err">{{ error }}</p></div>{% endif %}
+{% if one_line %}
+<div class="card"><h2 class="result-title">Una sola línea (\n escapado)</h2><pre>{{ one_line }}</pre></div>
+<div class="card"><h2 class="result-title">Comando jq -n</h2><pre>{{ jq_cmd }}</pre></div>
+<div class="card"><h2 class="result-title">Base64 (para secrets de Kubernetes)</h2><pre>{{ b64 }}</pre></div>
+{% endif %}
+{% endblock %}

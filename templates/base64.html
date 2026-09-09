@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Base64 · Atlas{% endblock %}
+{% block body %}
+<div class="page-head">
+  <a class="back" href="/">← Inicio</a>
+  <h1>Base64</h1>
+  <p>Codifica o decodifica texto en Base64 al instante.</p>
+</div>
+<form class="card" method="post">
+  <label>Operación</label>
+  <select name="mode">
+    <option value="encode" {% if form.get('mode')!='decode' %}selected{% endif %}>Texto → Base64</option>
+    <option value="decode" {% if form.get('mode')=='decode' %}selected{% endif %}>Base64 → Texto</option>
+  </select>
+  <label>Entrada</label>
+  <textarea name="text">{{ form.get('text','') }}</textarea>
+  <button type="submit">Convertir</button>
+</form>
+{% if error %}<div class="card err"><p class="err">{{ error }}</p></div>{% endif %}
+{% if output %}<div class="card"><h2 class="result-title">Resultado</h2><pre>{{ output }}</pre></div>{% endif %}
+{% endblock %}

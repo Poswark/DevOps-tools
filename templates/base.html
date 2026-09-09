@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0e0f13">
+<title>{% block title %}Atlas · DevOps Tools{% endblock %}</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Crect width='120' height='120' rx='22' fill='%23c8102e'/%3E%3Ccircle cx='60' cy='60' r='34' fill='none' stroke='white' stroke-width='6'/%3E%3Cellipse cx='60' cy='60' rx='34' ry='13' fill='none' stroke='white' stroke-width='4'/%3E%3Cline x1='26' y1='60' x2='94' y2='60' stroke='white' stroke-width='4'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --red: #ff3b4e;
+    --red-dark: #ff5c6c;
+    --red-tint: rgba(255, 59, 78, 0.14);
+    --red-border: rgba(255, 59, 78, 0.35);
+    --ink: #f2f1ee;
+    --muted: #9a9ba3;
+    --paper: #0e0f13;
+    --surface: #17181d;
+    --line: #2b2c33;
+    --ok: #35d488;
+    --err: #ff5c6c;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    background-image:
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: 42px 42px;
+    background-position: -1px -1px;
+    color: var(--ink);
+    font-family: "IBM Plex Sans", -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  h1, h2, .wordmark { font-family: "Space Grotesk", "IBM Plex Sans", sans-serif; }
+  code, pre, .mono, .chip, .route { font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace; }
+  a { color: var(--red-dark); }
+  .shell { max-width: 900px; margin: 0 auto; padding: 0 20px 72px; }
+
+  .topbar {
+    display: flex; align-items: center; gap: 10px;
+    padding: 18px 20px; border-bottom: 3px solid var(--ink);
+    max-width: 900px; margin: 0 auto;
+  }
+  .topbar .mark { width: 30px; height: 30px; flex: none; }
+  .topbar .wordmark { font-size: 16px; font-weight: 700; letter-spacing: .01em; }
+  .topbar .wordmark .dot { color: var(--red); }
+  .topbar nav { margin-left: auto; display: flex; gap: 18px; font-size: 13px; }
+  .topbar nav a { color: var(--ink); text-decoration: none; border-bottom: 2px solid transparent; padding-bottom: 3px; }
+  .topbar nav a:hover, .topbar nav a.active { border-bottom-color: var(--red); }
+
+  .hero { text-align: center; padding: 56px 0 40px; border-bottom: 1px solid var(--line); }
+  .hero .mark { width: 84px; height: 84px; margin: 0 auto 18px; display: block; }
+  .hero h1 { font-size: 38px; font-weight: 700; margin: 0 0 10px; letter-spacing: -.01em; }
+  .hero h1 .dot { color: var(--red); margin: 0 6px; }
+  .hero p { color: var(--muted); font-size: 15.5px; max-width: 480px; margin: 0 auto; }
+  .hero .eyebrow { display: inline-block; font-size: 11px; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--red-dark); font-weight: 600; background: var(--red-tint); border: 1px solid var(--red-border);
+    padding: 4px 10px; border-radius: 3px; margin-bottom: 18px; }
+
+  .page-head { padding: 34px 0 26px; border-bottom: 1px solid var(--line); margin-bottom: 26px; }
+  .page-head .back { font-size: 13px; color: var(--muted); text-decoration: none; }
+  .page-head .back:hover { color: var(--red-dark); }
+  .page-head h1 { font-size: 30px; margin: 10px 0 6px; }
+  .page-head p { color: var(--muted); margin: 0; max-width: 560px; }
+
+  .stack { display: grid; gap: 18px; margin-top: 34px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--red);
+    padding: 26px 28px; border-radius: 6px; display: block; text-decoration: none; color: inherit;
+  }
+  .card.link:hover { border-left-color: var(--red-dark); background: #1d1e25; border-color: #37383f; }
+  .card .route { font-size: 11.5px; color: var(--red-dark); background: var(--red-tint); border: 1px solid var(--red-border);
+    display: inline-block; padding: 2px 8px; border-radius: 3px; margin-bottom: 12px; }
+  .card h2 { font-size: 26px; margin: 0 0 10px; }
+  .card p { color: var(--muted); margin: 0; font-size: 14.5px; line-height: 1.65; }
+  .card .go { display: inline-block; margin-top: 14px; font-size: 13px; font-weight: 600; color: var(--red-dark); }
+  .card.link:hover .go { text-decoration: underline; }
+
+  form.card { border-left: 4px solid #55565f; }
+  label { display: block; font-size: 12.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin: 16px 0 5px; }
+  label:first-of-type { margin-top: 0; }
+  input, select, textarea {
+    width: 100%; background: #0b0c10; color: var(--ink); border: 1px solid #33343c;
+    border-radius: 4px; padding: 10px 12px; font: inherit; font-size: 14.5px;
+  }
+  input::placeholder, textarea::placeholder { color: #64656d; opacity: 1; }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--red); box-shadow: 0 0 0 3px var(--red-tint); }
+  select option { background: #17181d; color: var(--ink); }
+  textarea { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 13px; min-height: 150px; resize: vertical; }
+  .row { display: flex; gap: 14px; flex-wrap: wrap; }
+  .row > * { flex: 1 1 160px; }
+  button {
+    margin-top: 20px; background: var(--red); color: #fff; border: 0; border-radius: 3px;
+    padding: 11px 22px; font: inherit; font-weight: 600; font-size: 14px; cursor: pointer;
+    letter-spacing: .01em;
+  }
+  button:hover { background: var(--red-dark); }
+  pre { background: #0b0c10; border: 1px solid var(--line); border-radius: 4px; padding: 14px;
+    overflow-x: auto; font-size: 12.5px; white-space: pre-wrap; word-break: break-all; color: var(--ink); }
+  .result-head { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+  .status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .ok .status-dot, .status-ok { background: var(--ok); }
+  .err .status-dot, .status-err { background: var(--err); }
+  .ok h2 { color: var(--ok); } .err h2 { color: var(--err); }
+  .card h2.result-title { font-size: 18px; margin: 0; }
+  .chk { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; margin-top: 14px; }
+  .chk input { width: auto; }
+  footer { text-align: center; color: var(--muted); font-size: 12px; padding: 40px 0 10px; }
+</style>
+{% block head %}{% endblock %}
+</head>
+<body>
+{% macro logo(cls="mark") %}
+<svg class="{{ cls }}" viewBox="0 0 120 120" role="img" aria-label="Atlas">
+  <polygon points="60,4 111,32 111,88 60,116 9,88 9,32" fill="#ffffff" stroke="#c8102e" stroke-width="5"/>
+  <circle cx="60" cy="60" r="33" fill="none" stroke="#c8102e" stroke-width="3.5"/>
+  <ellipse cx="60" cy="60" rx="33" ry="12.5" fill="none" stroke="#c8102e" stroke-width="2.75"/>
+  <ellipse cx="60" cy="60" rx="12.5" ry="33" fill="none" stroke="#c8102e" stroke-width="2.75"/>
+  <line x1="27" y1="60" x2="93" y2="60" stroke="#c8102e" stroke-width="2.75"/>
+</svg>
+{% endmacro %}
+<div class="topbar">
+  {{ logo("mark") }}
+  <span class="wordmark">DevOps Tools<span class="dot"> · </span>Atlas</span>
+  <nav>
+    <a href="/" class="{{ 'active' if active=='home' }}">Inicio</a>
+    <a href="/connection" class="{{ 'active' if active=='connection' }}">Connection</a>
+    <a href="/base64" class="{{ 'active' if active=='base64' }}">Base64</a>
+    <a href="/cert" class="{{ 'active' if active=='cert' }}">Certificados</a>
+    <a href="/resources" class="{{ 'active' if active=='resources' }}">Recursos</a>
+  </nav>
+</div>
+<div class="shell">
+{% block body %}{% endblock %}
+</div>
+<footer>Atlas · herramientas internas de DevOps</footer>
+</body>
+</html>
