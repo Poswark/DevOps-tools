@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Connection · Atlas{% endblock %}
+{% block body %}
+<div class="page-head">
+  <a class="back" href="/">← Inicio</a>
+  <h1>Connection</h1>
+  <p>Pruebas de conectividad ejecutadas desde el servidor donde corre esta app: TCP, HTTP, DNS y TLS.</p>
+</div>
+<form class="card" method="post">
+  <label>Tipo de prueba</label>
+  <select name="check">
+    {% for v,l in [('tcp','TCP / telnet'),('http','HTTP / curl'),('dns','DNS lookup'),('tls','Certificado TLS')] %}
+    <option value="{{v}}" {% if form.get('check')==v %}selected{% endif %}>{{l}}</option>
+    {% endfor %}
+  </select>
+  <div class="row">
+    <div><label>Host (tcp / dns / tls)</label>
+      <input name="host" placeholder="ejemplo.com" value="{{ form.get('host','') }}"></div>
+    <div><label>Puerto</label>
+      <input name="port" placeholder="443" value="{{ form.get('port','') }}"></div>
+    <div><label>Timeout (s)</label>
+      <input name="timeout" placeholder="5" value="{{ form.get('timeout','') }}"></div>
+  </div>
+  <div class="row">
+    <div style="flex:3 1 300px"><label>URL (HTTP / curl)</label>
+      <input name="url" placeholder="https://ejemplo.com/health" value="{{ form.get('url','') }}"></div>
+    <div><label>Método</label>
+      <select name="method">
+        {% for m in ['GET','HEAD','POST','PUT','DELETE'] %}
+        <option {% if form.get('method')==m %}selected{% endif %}>{{m}}</option>{% endfor %}
+      </select></div>
+  </div>
+  <label class="chk"><input type="checkbox" name="insecure" {% if form.get('insecure') %}checked{% endif %}> Ignorar validación TLS (curl -k)</label>
+  <button type="submit">Ejecutar</button>
+</form>
+{% if ok is not none %}
+<div class="card {{ 'ok' if ok else 'err' }}">
+  <div class="result-head"><span class="status-dot"></span><h2 class="result-title">{{ 'OK' if ok else 'FALLO' }}</h2></div>
+  <pre>{{ output }}</pre>
+</div>
+{% endif %}
+{% endblock %}

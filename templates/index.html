@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="hero">
+  {{ logo("mark") }}
+  <h1>DevOps Tools<span class="dot">·</span>Atlas</h1>
+  <p>Panel interno de utilidades para diagnóstico de red, codificación y manejo de certificados.</p>
+</div>
+<div class="stack">
+  <a class="card link" href="/connection">
+    <span class="route">GET / POST · /connection</span>
+    <h2>Connection</h2>
+    <p>Valida la conectividad de red en tiempo real: prueba puertos TCP (equivalente a telnet),
+       resuelve DNS, inspecciona el certificado TLS de un host y lanza peticiones HTTP completas
+       (método, headers, cuerpo y tiempo de respuesta, como un <code>curl</code>).</p>
+    <span class="go">Abrir Connection →</span>
+  </a>
+  <a class="card link" href="/base64">
+    <span class="route">GET / POST · /base64</span>
+    <h2>Base64</h2>
+    <p>Codifica texto a Base64 o decodifícalo de vuelta a texto plano. Pensado para revisar rápido
+       tokens, payloads o variables de entorno codificadas sin salir del navegador.</p>
+    <span class="go">Abrir Base64 →</span>
+  </a>
+  <a class="card link" href="/cert">
+    <span class="route">GET / POST · /cert</span>
+    <h2>Certificados</h2>
+    <p>Pega un certificado PEM completo (con su cadena) y obtén su versión en una sola línea,
+       lista para pegar en un <code>Secret</code>, una variable de entorno o un comando
+       <code>jq -n</code>, además de su equivalente en Base64.</p>
+    <span class="go">Abrir Certificados →</span>
+  </a>
+  <a class="card link" href="/resources">
+    <span class="route">GET / POST · /resources</span>
+    <h2>Recursos y HPA</h2>
+    <p>Pega el uso de CPU y memoria de 24 horas que reporta Dynatrace y obtén los
+       <code>requests</code> y <code>limits</code> recomendados, el HPA dimensionado según
+       las transacciones por minuto, y cuánto estás reservando de más frente a lo que
+       realmente consume el workload.</p>
+    <span class="go">Abrir Recursos →</span>
+  </a>
+</div>
+{% endblock %}

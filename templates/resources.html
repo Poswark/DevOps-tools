@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% block title %}Recursos y HPA · Atlas{% endblock %}
+{% block head %}
+<style>
+  .grid2 { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+  .fieldset-title { font-size: 12px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--red-dark); font-weight: 600; margin: 26px 0 4px; }
+  .fieldset-title:first-child { margin-top: 0; }
+  .hint { color: var(--muted); font-size: 12.5px; margin: 2px 0 14px; }
+  table.calc { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  table.calc th, table.calc td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); }
+  table.calc th { color: var(--muted); font-weight: 500; font-size: 12px;
+    text-transform: uppercase; letter-spacing: .05em; }
+  table.calc td.val { font-family: "IBM Plex Mono", ui-monospace, monospace; color: var(--ink); }
+  table.calc td.big { font-size: 16px; font-weight: 600; color: var(--red-dark); }
+  .findings { list-style: none; padding: 0; margin: 0; }
+  .findings li { display: flex; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--line);
+    font-size: 14px; color: var(--muted); line-height: 1.55; }
+  .findings li:last-child { border-bottom: 0; }
+  .tag { flex: none; font-size: 10.5px; font-weight: 700; letter-spacing: .08em; padding: 3px 7px;
+    border-radius: 3px; text-transform: uppercase; height: fit-content; margin-top: 1px;
+    font-family: "IBM Plex Mono", ui-monospace, monospace; }
+  .tag.warn { background: rgba(255,92,108,.16); color: #ff8a95; border: 1px solid rgba(255,92,108,.35); }
+  .tag.info { background: rgba(120,140,255,.14); color: #9fb0ff; border: 1px solid rgba(120,140,255,.3); }
+  .tag.ok { background: rgba(53,212,136,.14); color: #5fe0a3; border: 1px solid rgba(53,212,136,.3); }
+  .kpi { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin-top: 4px; }
+  .kpi div { border: 1px solid var(--line); border-radius: 5px; padding: 14px 16px; background: #0b0c10; }
+  .kpi span { display: block; font-size: 11.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+  .kpi strong { display: block; font-size: 21px; margin-top: 6px; font-weight: 600;
+    font-family: "IBM Plex Mono", ui-monospace, monospace; }
+</style>
+{% endblock %}
+{% block body %}
+<div class="page-head">
+  <a class="back" href="/">← Inicio</a>
+  <h1>Recursos y HPA</h1>
+  <p>Pega las métricas de 24 horas de Dynatrace y obtén los <code>requests</code> y
+     <code>limits</code> recomendados, el HPA dimensionado según tu throughput, y las
+     conversiones de unidades.</p>
+</div>
+
+<form class="card" method="post">
+  <div class="fieldset-title">Métricas de CPU (24h)</div>
+  <p class="hint">Usa la unidad: <code>350m</code> o <code>0.5</code> cores. Un número suelto
+     de 10 en adelante se toma como millicores; menor a 10, como cores.</p>
+  <div class="grid2">
+    <div><label>CPU p95 *</label>
+      <input name="cpu_p95" placeholder="350m" value="{{ form.get('cpu_p95','') }}"></div>
+    <div><label>CPU máximo</label>
+      <input name="cpu_max" placeholder="620m" value="{{ form.get('cpu_max','') }}"></div>
+  </div>
+
+  <div class="fieldset-title">Métricas de memoria (24h)</div>
+  <p class="hint">Usa la unidad: <code>650Mi</code>, <code>2Gi</code>, <code>1024M</code>.
+     Un número suelto se toma como <strong>MiB</strong>.</p>
+  <div class="grid2">
+    <div><label>Memoria p95 *</label>
+      <input name="mem_p95" placeholder="480Mi" value="{{ form.get('mem_p95','') }}"></div>
+    <div><label>Memoria máxima</label>
+      <input name="mem_max" placeholder="710Mi" value="{{ form.get('mem_max','') }}"></div>
+  </div>
+
+  <div class="fieldset-title">Configuración actual (opcional)</div>
+  <p class="hint">Si la llenas, se calcula el desperdicio y se detecta throttling u OOM.</p>
+  <div class="grid2">
+    <div><label>Request CPU</label>
+      <input name="req_cpu_actual" placeholder="1" value="{{ form.get('req_cpu_actual','') }}"></div>
+    <div><label>Limit CPU</label>
+      <input name="lim_cpu_actual" placeholder="2" value="{{ form.get('lim_cpu_actual','') }}"></div>
+    <div><label>Request memoria</label>
+      <input name="req_mem_actual" placeholder="2Gi" value="{{ form.get('req_mem_actual','') }}"></div>
+    <div><label>Limit memoria</label>
+      <input name="lim_mem_actual" placeholder="2Gi" value="{{ form.get('lim_mem_actual','') }}"></div>
+  </div>
+
+  <div class="fieldset-title">Throughput para el HPA (opcional)</div>
+  <p class="hint">TPM = transacciones por minuto del servicio completo, no por pod.</p>
+  <div class="grid2">
+    <div><label>Réplicas actuales</label>
+      <input name="replicas" placeholder="3" value="{{ form.get('replicas','') }}"></div>
+    <div><label>TPM promedio</label>
+      <input name="tpm_avg" placeholder="1200" value="{{ form.get('tpm_avg','') }}"></div>
+    <div><label>TPM pico</label>
+      <input name="tpm_peak" placeholder="4500" value="{{ form.get('tpm_peak','') }}"></div>
+    <div><label>TPM objetivo (crecimiento)</label>
+      <input name="tpm_target" placeholder="9000" value="{{ form.get('tpm_target','') }}"></div>
+    <div><label>Utilización objetivo (%)</label>
+      <input name="target_util" placeholder="70" value="{{ form.get('target_util','') }}"></div>
+  </div>
+  <label>Nombre del workload</label>
+  <input name="workload" placeholder="mi-servicio" value="{{ form.get('workload','') }}">
+
+  <button type="submit">Calcular</button>
+</form>
+
+{% if error %}<div class="card err"><p class="err">{{ error }}</p></div>{% endif %}
+
+{% if result %}
+<div class="card">
+  <h2 class="result-title">Se interpretaron tus datos así</h2>
+  <table class="calc" style="margin-top:14px">
+    <tr><th>CPU p95</th><td class="val">{{ result.parsed.cpu_p95 }}</td>
+        <th>CPU máximo</th><td class="val">{{ result.parsed.cpu_max }}</td></tr>
+    <tr><th>Memoria p95</th><td class="val">{{ result.parsed.mem_p95 }}</td>
+        <th>Memoria máxima</th><td class="val">{{ result.parsed.mem_max }}</td></tr>
+  </table>
+  <p class="hint" style="margin-top:12px">Si algo no cuadra, escribe la unidad explícita
+     (<code>350m</code>, <code>650Mi</code>) y vuelve a calcular.</p>
+</div>
+
+<div class="card">
+  <h2 class="result-title">Recomendación</h2>
+  <div class="kpi" style="margin-top:16px">
+    <div><span>Request CPU</span><strong>{{ result.fmt.req_cpu }}</strong></div>
+    <div><span>Limit CPU</span><strong>{{ result.fmt.lim_cpu }}</strong></div>
+    <div><span>Request memoria</span><strong>{{ result.fmt.req_mem }}</strong></div>
+    <div><span>Limit memoria</span><strong>{{ result.fmt.lim_mem }}</strong></div>
+  </div>
+</div>
+
+<div class="card"><h2 class="result-title">Bloque para el Deployment</h2>
+  <pre>{{ result.resources_yaml }}</pre></div>
+
+{% if result.hpa %}
+<div class="card">
+  <h2 class="result-title">HPA sugerido</h2>
+  <table class="calc" style="margin-top:14px">
+    <tr><th>Réplicas</th><td class="val big">{{ result.hpa.min_replicas }} – {{ result.hpa.max_replicas }}</td></tr>
+    <tr><th>Utilización objetivo</th><td class="val">{{ result.hpa.target_util }}% del request de CPU</td></tr>
+    <tr><th>Capacidad por pod</th><td class="val">≈ {{ result.hpa.tpm_per_pod }} TPM al {{ result.hpa.target_util }}%</td></tr>
+    <tr><th>TPM por pod hoy</th><td class="val">{{ result.hpa.tpm_per_pod_actual }}</td></tr>
+    <tr><th>Costo por transacción</th><td class="val">{{ result.hpa.m_per_tpm }} millicores por TPM</td></tr>
+    <tr><th>TPM que cubre el máximo</th><td class="val">{{ result.hpa.tpm_objetivo }}</td></tr>
+  </table>
+</div>
+<div class="card"><h2 class="result-title">Manifiesto del HPA</h2>
+  <pre>{{ result.hpa_yaml }}</pre></div>
+{% endif %}
+
+{% if result.savings %}
+<div class="card">
+  <h2 class="result-title">Diferencia contra lo reservado hoy</h2>
+  <div class="kpi" style="margin-top:16px">
+    <div><span>CPU liberada</span><strong>{{ result.savings.cpu_cores }} cores</strong></div>
+    <div><span>Memoria liberada</span><strong>{{ result.savings.mem_gib }} Gi</strong></div>
+  </div>
+  <p class="hint" style="margin-top:14px">Total sumando todas las réplicas. En negativo significa
+     que estás por debajo de lo necesario y hay que subir la reserva.</p>
+</div>
+{% endif %}
+
+<div class="card">
+  <h2 class="result-title">Hallazgos</h2>
+  <ul class="findings" style="margin-top:12px">
+    {% for level, text in result.warnings %}
+    <li><span class="tag {{ level }}">{{ level }}</span><span>{{ text }}</span></li>
+    {% endfor %}
+  </ul>
+</div>
+
+<div class="card">
+  <h2 class="result-title">Conversiones</h2>
+  <table class="calc" style="margin-top:14px">
+    <tr><th>CPU p95</th><td class="val">{{ result.conv.cpu_p95_cores }} cores</td></tr>
+    <tr><th>CPU máximo</th><td class="val">{{ result.conv.cpu_max_cores }} cores</td></tr>
+    <tr><th>Memoria p95</th><td class="val">{{ result.conv.mem_p95_mi }} Mi · {{ result.conv.mem_p95_gi }} Gi · {{ result.conv.mem_p95_bytes }} bytes</td></tr>
+    <tr><th>Memoria máxima</th><td class="val">{{ result.conv.mem_max_mi }} Mi</td></tr>
+  </table>
+</div>
+{% endif %}
+{% endblock %}
