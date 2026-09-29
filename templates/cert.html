@@ -1,22 +1,75 @@
 {% extends "base.html" %}
 {% block title %}Certificados · Atlas{% endblock %}
+{% block head %}
+<style>
+  .hint { color: var(--muted); font-size: 12.5px; margin: 2px 0 14px; }
+  .findings { list-style: none; padding: 0; margin: 0; }
+  .findings li { display: flex; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--line);
+    font-size: 14px; color: var(--muted); line-height: 1.55; }
+  .findings li:last-child { border-bottom: 0; }
+  .tag { flex: none; font-size: 10.5px; font-weight: 700; letter-spacing: .08em; padding: 3px 7px;
+    border-radius: 3px; text-transform: uppercase; height: fit-content; margin-top: 1px;
+    font-family: "IBM Plex Mono", ui-monospace, monospace; }
+  .tag.warn { background: rgba(255,92,108,.16); color: #ff8a95; border: 1px solid rgba(255,92,108,.35); }
+  .tag.info { background: rgba(120,140,255,.14); color: #9fb0ff; border: 1px solid rgba(120,140,255,.3); }
+  .bloque-titulo { font-size: 12px; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--red-dark); font-weight: 600; margin: 22px 0 8px; }
+  .bloque-titulo:first-child { margin-top: 0; }
+  input[type=file] { padding: 9px 12px; cursor: pointer; }
+  input[type=file]::file-selector-button {
+    background: #24252c; color: var(--ink); border: 1px solid #3a3b44; border-radius: 3px;
+    padding: 5px 12px; margin-right: 12px; font: inherit; font-size: 13px; cursor: pointer; }
+  input[type=file]::file-selector-button:hover { border-color: var(--red); }
+</style>
+{% endblock %}
 {% block body %}
 <div class="page-head">
   <a class="back" href="/">← Inicio</a>
   <h1>Certificados a una línea</h1>
-  <p>Pega el PEM completo (puede incluir la cadena) y obtén la versión en una sola línea.</p>
+  <p>Pega el PEM o adjunta el archivo. Si trae la cadena completa, se separa cada
+     certificado. Nada se guarda en el servidor.</p>
 </div>
-<form class="card" method="post">
+
+<form class="card" method="post" enctype="multipart/form-data">
   <label>Nombre de la llave (para jq)</label>
   <input name="key_name" placeholder="tls.crt" value="{{ form.get('key_name','') }}">
+
+  <label>Archivo PEM (opcional)</label>
+  <input type="file" name="archivo" accept=".pem,.crt,.cer,.key,.txt">
+  <p class="hint">Si adjuntas un archivo, tiene prioridad sobre el texto de abajo.</p>
+
   <label>Certificado PEM</label>
   <textarea name="cert" placeholder="-----BEGIN CERTIFICATE-----&#10;...&#10;-----END CERTIFICATE-----">{{ form.get('cert','') }}</textarea>
   <button type="submit">Convertir</button>
 </form>
+
 {% if error %}<div class="card err"><p class="err">{{ error }}</p></div>{% endif %}
+
+{% if avisos %}
+<div class="card">
+  <h2 class="result-title">Hallazgos</h2>
+  <ul class="findings" style="margin-top:12px">
+    {% for level, text in avisos %}
+    <li><span class="tag {{ level }}">{{ level }}</span><span>{{ text }}</span></li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
 {% if one_line %}
 <div class="card"><h2 class="result-title">Una sola línea (\n escapado)</h2><pre>{{ one_line }}</pre></div>
 <div class="card"><h2 class="result-title">Comando jq -n</h2><pre>{{ jq_cmd }}</pre></div>
 <div class="card"><h2 class="result-title">Base64 (para secrets de Kubernetes)</h2><pre>{{ b64 }}</pre></div>
+{% endif %}
+
+{% if cadena %}
+<div class="card">
+  <h2 class="result-title">Bloques de la cadena</h2>
+  <p class="hint" style="margin-top:10px">Cada bloque por separado, ya en una sola línea.</p>
+  {% for bloque in cadena %}
+  <div class="bloque-titulo">{{ loop.index }}. {{ bloque.tipo }}</div>
+  <pre>{{ bloque.one_line }}</pre>
+  {% endfor %}
+</div>
 {% endif %}
 {% endblock %}

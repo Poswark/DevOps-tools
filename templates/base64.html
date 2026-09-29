@@ -1,21 +1,93 @@
 {% extends "base.html" %}
 {% block title %}Base64 · Atlas{% endblock %}
+{% block head %}
+<style>
+  .hint { color: var(--muted); font-size: 12.5px; margin: 2px 0 14px; }
+  table.calc { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  table.calc th, table.calc td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); }
+  table.calc th { color: var(--muted); font-weight: 500; font-size: 12px;
+    text-transform: uppercase; letter-spacing: .05em; white-space: nowrap; }
+  table.calc td { font-family: "IBM Plex Mono", ui-monospace, monospace; word-break: break-all; }
+  input[type=file] { padding: 9px 12px; cursor: pointer; }
+  input[type=file]::file-selector-button {
+    background: #24252c; color: var(--ink); border: 1px solid #3a3b44; border-radius: 3px;
+    padding: 5px 12px; margin-right: 12px; font: inherit; font-size: 13px; cursor: pointer; }
+  input[type=file]::file-selector-button:hover { border-color: var(--red); }
+</style>
+{% endblock %}
 {% block body %}
 <div class="page-head">
   <a class="back" href="/">← Inicio</a>
   <h1>Base64</h1>
-  <p>Codifica o decodifica texto en Base64 al instante.</p>
+  <p>Convierte texto o archivos (<code>.jks</code>, <code>.p12</code>, <code>.crt</code>, lo que sea)
+     a Base64 y de vuelta. Nada se guarda en el servidor: todo se procesa en memoria.</p>
 </div>
-<form class="card" method="post">
+
+<form class="card" method="post" enctype="multipart/form-data">
   <label>Operación</label>
-  <select name="mode">
-    <option value="encode" {% if form.get('mode')!='decode' %}selected{% endif %}>Texto → Base64</option>
+  <select name="mode" id="mode">
+    <option value="encode" {% if form.get('mode','encode')=='encode' %}selected{% endif %}>Texto → Base64</option>
     <option value="decode" {% if form.get('mode')=='decode' %}selected{% endif %}>Base64 → Texto</option>
+    <option value="file_encode" {% if form.get('mode')=='file_encode' %}selected{% endif %}>Archivo → Base64</option>
+    <option value="file_decode" {% if form.get('mode')=='file_decode' %}selected{% endif %}>Base64 → Archivo (descarga)</option>
   </select>
-  <label>Entrada</label>
-  <textarea name="text">{{ form.get('text','') }}</textarea>
+
+  <div id="campo-archivo">
+    <label>Archivo</label>
+    <input type="file" name="archivo">
+    <p class="hint">Máximo 10 MiB. Se calcula el SHA-256 para que puedas verificar la
+       integridad del otro lado con <code>shasum -a 256</code>.</p>
+  </div>
+
+  <div id="campo-texto">
+    <label id="label-texto">Entrada</label>
+    <textarea name="text" placeholder="Pega aquí el texto o el base64">{{ form.get('text','') }}</textarea>
+  </div>
+
+  <div id="campo-nombre">
+    <label>Nombre del archivo a descargar</label>
+    <input name="filename" placeholder="keystore.jks" value="{{ form.get('filename','') }}">
+  </div>
+
   <button type="submit">Convertir</button>
 </form>
+
 {% if error %}<div class="card err"><p class="err">{{ error }}</p></div>{% endif %}
-{% if output %}<div class="card"><h2 class="result-title">Resultado</h2><pre>{{ output }}</pre></div>{% endif %}
+
+{% if info %}
+<div class="card">
+  <h2 class="result-title">Archivo procesado</h2>
+  <table class="calc" style="margin-top:14px">
+    <tr><th>Nombre</th><td>{{ info.nombre }}</td></tr>
+    <tr><th>Tamaño</th><td>{{ info.tamano }} ({{ info.bytes }} bytes)</td></tr>
+    <tr><th>SHA-256</th><td>{{ info.sha256 }}</td></tr>
+  </table>
+  <p class="hint" style="margin-top:12px">Verifica al otro lado con
+     <code>shasum -a 256 {{ info.nombre }}</code>.</p>
+</div>
+{% endif %}
+
+{% if output %}
+<div class="card"><h2 class="result-title">Resultado</h2><pre>{{ output }}</pre></div>
+{% endif %}
+
+<script>
+  (function () {
+    var modo = document.getElementById('mode');
+    var archivo = document.getElementById('campo-archivo');
+    var texto = document.getElementById('campo-texto');
+    var nombre = document.getElementById('campo-nombre');
+    var labelTexto = document.getElementById('label-texto');
+
+    function ajustar() {
+      var v = modo.value;
+      archivo.hidden = v !== 'file_encode';
+      texto.hidden = v === 'file_encode';
+      nombre.hidden = v !== 'file_decode';
+      labelTexto.textContent = (v === 'decode' || v === 'file_decode') ? 'Base64' : 'Texto';
+    }
+    modo.addEventListener('change', ajustar);
+    ajustar();
+  })();
+</script>
 {% endblock %}

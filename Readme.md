@@ -3,13 +3,36 @@
 Panel interno de utilidades DevOps. FastAPI con templates Jinja2 y 4 herramientas:
 
 1. **Connection** (`/connection`) — pruebas TCP (telnet), HTTP (curl), DNS y certificado TLS.
-2. **Base64** (`/base64`) — codificar / decodificar texto.
-3. **Certificados** (`/cert`) — PEM completo a una sola linea, comando `jq -n` y base64.
+2. **Base64** (`/base64`) — codificar / decodificar texto **y archivos** (`.jks`, `.p12`,
+   lo que sea), con SHA-256 para verificar integridad.
+3. **Certificados** (`/cert`) — PEM completo a una sola linea, comando `jq -n` y base64;
+   acepta archivo adjunto y separa la cadena en sus bloques.
 4. **Recursos y HPA** (`/resources`) — right-sizing de `requests`/`limits` a partir de las
    metricas de 24h de Dynatrace, mas el HPA dimensionado por transacciones por minuto.
 
 `/health` responde el healthcheck. `main.py` esta en la raiz del proyecto y se sirve con
 gunicorn usando `uvicorn.workers.UvicornWorker`.
+
+## Base64 con archivos
+
+Cuatro modos: texto a base64 y de vuelta, y **archivo a base64 y de vuelta**. Al subir un
+archivo se muestra su tamano y su SHA-256, para que quien lo reciba verifique con
+`shasum -a 256 <archivo>` que llego intacto. El modo inverso devuelve el archivo como
+descarga, con el checksum tambien en la cabecera `X-Checksum-Sha256`.
+
+Limite de 10 MiB. Nada se escribe en disco: el contenido pasa por memoria y no se registra
+en los logs, que solo guardan metodo y ruta.
+
+## Certificados
+
+Ademas de pegar el PEM se puede adjuntar el archivo (`.pem`, `.crt`, `.cer`). Si el
+contenido trae varios bloques, se listan por separado ya en una sola linea, util para
+separar el certificado del servidor de sus intermedios. Si aparece una llave privada entre
+los bloques, se avisa.
+
+Todos los bloques de salida de la app (aqui, en el HPA y en Base64) tienen boton de
+**Copiar**, con respaldo para cuando la app se sirve sobre HTTP plano y el navegador no
+expone `navigator.clipboard`.
 
 ## Recursos y HPA
 

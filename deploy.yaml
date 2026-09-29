@@ -1,0 +1,16 @@
+        env:
+          - name: NODE_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.hostIP
+          - name: NODE_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
+          # Opcional: IP de salida hacia afuera del cluster (NAT/firewall), si la conoces
+          - name: EGRESS_IP
+            valueFrom:
+              configMapKeyRef:
+                name: webtools-config
+                key: egress_ip
+                optional: true

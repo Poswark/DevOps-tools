@@ -4,6 +4,12 @@
   {{ logo("mark") }}
   <h1>DevOps Tools<span class="dot">·</span>Atlas</h1>
   <p>Panel interno de utilidades para diagnóstico de red, codificación y manejo de certificados.</p>
+  {% if node_ip or node_name %}
+  <h2 class="node">
+    IP: {{ node_ip }}{% if node_name %} 
+    <br> Node: ({{ node_name }}){% endif %}
+  </h2>
+  {% endif %}
 </div>
 <div class="stack">
   <a class="card link" href="/connection">

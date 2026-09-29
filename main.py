@@ -1,4 +1,5 @@
 import base64
+import hashlib
 import json
 import logging
 import os
@@ -10,7 +11,7 @@ from math import ceil
 
 import httpx
 from fastapi import FastAPI, Form, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from fastapi.templating import Jinja2Templates
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -40,14 +41,43 @@ class HealthCheckFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         return "/health" not in record.getMessage()
 
+@app.get("/", response_class=HTMLResponse)
+async def index(request: Request):
+    return templates.TemplateResponse(
+        request, "index.html",
+        {"active": "home",
+         "node_ip": os.getenv("NODE_IP", ""),
+         "node_name": os.getenv("NODE_NAME", "")})
+
+def origin_info(sock):
+    """Lineas de origen/destino de un socket ya conectado.
+
+    Es informativo: si el socket no da los datos, la prueba no debe fallar.
+    """
+    lineas = []
+    try:
+        local_ip, local_port = sock.getsockname()[:2]   # [:2] por si es IPv6
+        lineas.append(f"Origen local (pod): {local_ip}:{local_port}")
+        lineas.append(f"Destino resuelto: {sock.getpeername()[0]}")
+    except Exception:
+        lineas.append("Origen local (pod): no disponible")
+    node_ip, node_name = os.getenv("NODE_IP"), os.getenv("NODE_NAME")
+    if node_ip:
+        lineas.append(f"Nodo: {node_ip}" + (f" ({node_name})" if node_name else ""))
+    if os.getenv("EGRESS_IP"):
+        lineas.append(f"Egress configurado: {os.getenv('EGRESS_IP')}")
+    return "\n".join(lineas)
+
 
 # ---------------------------------------------------------------- helpers
 def tcp_check(host, port, timeout=5.0):
     start = time.time()
     try:
-        with socket.create_connection((host, int(port)), timeout=timeout):
+        with socket.create_connection((host, int(port)), timeout=timeout) as sock:
             ms = (time.time() - start) * 1000
-            return True, f"Conexion TCP exitosa a {host}:{port} ({ms:.0f} ms)"
+            origen = origin_info(sock)
+            return True, (f"Conexion TCP exitosa a {host}:{port} ({ms:.0f} ms)\n"
+                          f"{origen}")
     except Exception as e:
         return False, f"No fue posible conectar a {host}:{port} -> {e}"
 
@@ -104,6 +134,76 @@ def _float(value, default):
         return float(value)
     except (TypeError, ValueError):
         return default
+
+
+# ---------------------------------------------------------------- archivos
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024   # 10 MiB: un .jks o .p12 no pasa de ahi
+
+
+def safe_filename(name, default="archivo.bin"):
+    """Nombre seguro para Content-Disposition (sin rutas ni comillas)."""
+    base = os.path.basename(str(name or "").strip())
+    base = re.sub(r"[^A-Za-z0-9._-]", "_", base).strip("._")
+    return base[:120] or default
+
+
+def human_size(nbytes):
+    """1536 -> '1.5 KiB'."""
+    size = float(nbytes)
+    for unit in ("B", "KiB", "MiB", "GiB"):
+        if size < 1024 or unit == "GiB":
+            return f"{int(size)} B" if unit == "B" else f"{size:.1f} {unit}"
+        size /= 1024
+
+
+_PEM_BLOCK_RE = re.compile(r"-----BEGIN ([A-Z0-9 ]+)-----.*?-----END \1-----", re.DOTALL)
+
+
+def split_pem_chain(pem):
+    """Separa un PEM con varios bloques en la lista de bloques que lo componen.
+
+    Sirve para la cadena tipica (hoja + intermedios + raiz) y tambien detecta
+    llaves privadas pegadas por error junto al certificado.
+    """
+    bloques = []
+    for m in _PEM_BLOCK_RE.finditer(pem):
+        cuerpo = "\n".join(l.strip() for l in m.group(0).splitlines() if l.strip()) + "\n"
+        bloques.append({"tipo": m.group(1).strip(),
+                        "pem": cuerpo,
+                        "one_line": cuerpo.replace("\n", "\\n")})
+    return bloques
+
+
+async def read_upload(subido):
+    """Bytes de un adjunto del formulario, o b"" si no vino ninguno.
+
+    Se lee del form crudo y con duck typing, por dos razones:
+    1. Un <input type="file"> sin seleccionar igual se envia, como cadena
+       vacia; si el parametro de la ruta se tipa como UploadFile, FastAPI
+       responde 422 y la card se rompe para quien no adjunta nada.
+    2. fastapi.UploadFile y starlette.datastructures.UploadFile no son la
+       misma clase, y request.form() entrega la segunda: un isinstance contra
+       la de FastAPI da False y el archivo se perderia en silencio.
+    """
+    if subido is None or isinstance(subido, str) or not hasattr(subido, "read"):
+        return b""
+    try:
+        await subido.seek(0)
+    except Exception:          # pragma: no cover - depende de la implementacion
+        pass
+    return await subido.read()
+
+
+def upload_name(subido, default=""):
+    return getattr(subido, "filename", None) or default
+
+
+def file_fingerprint(data, nombre):
+    """Tamano y SHA-256 para verificar integridad al otro lado del traslado."""
+    return {"nombre": nombre,
+            "bytes": len(data),
+            "tamano": human_size(len(data)),
+            "sha256": hashlib.sha256(data).hexdigest()}
 
 
 # ---------------------------------------------------------------- helpers
@@ -380,22 +480,62 @@ async def connection_run(
 async def b64_form(request: Request):
     return templates.TemplateResponse(
         request, "base64.html",
-        {"output": "", "error": "", "form": {}, "active": "base64"})
+        {"output": "", "error": "", "info": None, "form": {}, "active": "base64"})
 
 
 @app.post("/base64", response_class=HTMLResponse)
-async def b64_run(request: Request, mode: str = Form("encode"), text: str = Form("")):
-    output, error = "", ""
+async def b64_run(
+    request: Request,
+    mode: str = Form("encode"),
+    text: str = Form(""),
+    filename: str = Form(""),
+):
+    """Cuatro modos: texto/base64 en ambos sentidos y archivo/base64 en ambos.
+
+    El modo 'file_decode' no devuelve HTML sino el archivo reconstruido como
+    descarga. Nada se escribe en disco: todo pasa por memoria.
+    """
+    output, error, info = "", "", None
+    form = {"mode": mode, "text": text, "filename": filename}
+    subido = (await request.form()).get("archivo")
+
     try:
-        if mode == "decode":
+        if mode == "file_encode":
+            data = await read_upload(subido)
+            if not data:
+                raise ValueError("Adjunta un archivo para convertirlo.")
+            if len(data) > MAX_UPLOAD_BYTES:
+                raise ValueError(f"El archivo pesa {human_size(len(data))} y el limite "
+                                 f"son {human_size(MAX_UPLOAD_BYTES)}.")
+            nombre = safe_filename(upload_name(subido))
+            output = base64.b64encode(data).decode()
+            info = file_fingerprint(data, nombre)
+            form["filename"] = form["filename"] or nombre
+
+        elif mode == "file_decode":
+            limpio = "".join(text.split())
+            if not limpio:
+                raise ValueError("Pega el base64 del archivo.")
+            data = base64.b64decode(limpio + "===")
+            nombre = safe_filename(filename, "archivo.bin")
+            log.info("base64 file_decode %s (%s)", nombre, human_size(len(data)))
+            return Response(
+                content=data,
+                media_type="application/octet-stream",
+                headers={"Content-Disposition": f'attachment; filename="{nombre}"',
+                         "X-Checksum-Sha256": hashlib.sha256(data).hexdigest()},
+            )
+
+        elif mode == "decode":
             output = base64.b64decode("".join(text.split()) + "===").decode("utf-8", "replace")
         else:
             output = base64.b64encode(text.encode()).decode()
     except Exception as e:
         error = f"No se pudo procesar: {e}"
+
     return templates.TemplateResponse(
         request, "base64.html",
-        {"output": output, "error": error, "form": {"mode": mode, "text": text},
+        {"output": output, "error": error, "info": info, "form": form,
          "active": "base64"})
 
 
@@ -403,23 +543,60 @@ async def b64_run(request: Request, mode: str = Form("encode"), text: str = Form
 async def cert_form(request: Request):
     return templates.TemplateResponse(
         request, "cert.html",
-        {"one_line": "", "jq_cmd": "", "b64": "", "error": "", "form": {}, "active": "cert"})
+        {"one_line": "", "jq_cmd": "", "b64": "", "error": "", "cadena": [],
+         "avisos": [], "form": {}, "active": "cert"})
 
 
 @app.post("/cert", response_class=HTMLResponse)
-async def cert_run(request: Request, cert: str = Form(""), key_name: str = Form("tls.crt")):
-    ctx = {"one_line": "", "jq_cmd": "", "b64": "", "error": "",
-           "form": {"cert": cert, "key_name": key_name}, "active": "cert"}
+async def cert_run(
+    request: Request,
+    cert: str = Form(""),
+    key_name: str = Form("tls.crt"),
+):
+    """Pasa un PEM a una sola linea. Acepta texto pegado o archivo adjunto,
+    y si el PEM trae una cadena la separa en sus bloques."""
+    ctx = {"one_line": "", "jq_cmd": "", "b64": "", "error": "", "cadena": [],
+           "avisos": [], "form": {"cert": cert, "key_name": key_name}, "active": "cert"}
+
     pem = cert.strip()
+    data = await read_upload((await request.form()).get("archivo"))
+    if data:
+        if len(data) > MAX_UPLOAD_BYTES:
+            ctx["error"] = (f"El archivo pesa {human_size(len(data))} y el limite "
+                            f"son {human_size(MAX_UPLOAD_BYTES)}.")
+            return templates.TemplateResponse(request, "cert.html", ctx)
+        try:
+            pem = data.decode("utf-8").strip()
+        except UnicodeDecodeError:
+            ctx["error"] = ("Ese archivo no es un PEM de texto. Si es un .der o un "
+                            "keystore binario, conviertelo primero con openssl.")
+            return templates.TemplateResponse(request, "cert.html", ctx)
+        ctx["form"]["cert"] = pem
+
     key = (key_name or "tls.crt").strip()
     if not pem:
-        ctx["error"] = "Pega el contenido del certificado."
-    else:
-        normalized = "\n".join(l.rstrip() for l in pem.splitlines() if l.strip()) + "\n"
-        ctx["one_line"] = normalized.replace("\n", "\\n")
-        ctx["b64"] = base64.b64encode(normalized.encode()).decode()
-        ctx["jq_cmd"] = "jq -n --arg cert %s '{%s: $cert}'" % (
-            json.dumps(normalized), json.dumps(key))
+        ctx["error"] = "Pega el contenido del certificado o adjunta el archivo."
+        return templates.TemplateResponse(request, "cert.html", ctx)
+
+    normalized = "\n".join(l.rstrip() for l in pem.splitlines() if l.strip()) + "\n"
+    ctx["one_line"] = normalized.replace("\n", "\\n")
+    ctx["b64"] = base64.b64encode(normalized.encode()).decode()
+    ctx["jq_cmd"] = "jq -n --arg cert %s '{%s: $cert}'" % (
+        json.dumps(normalized), json.dumps(key))
+
+    cadena = split_pem_chain(normalized)
+    if len(cadena) > 1:
+        ctx["cadena"] = cadena
+        certs = sum(1 for b in cadena if b["tipo"] == "CERTIFICATE")
+        if certs > 1:
+            ctx["avisos"].append(
+                ("info", f"El PEM trae una cadena de {certs} certificados. Abajo esta "
+                         "cada uno por separado: el primero suele ser el del servidor y "
+                         "los siguientes los intermedios."))
+    if any("PRIVATE KEY" in b["tipo"] for b in cadena):
+        ctx["avisos"].append(
+            ("warn", "Este contenido incluye una llave privada. Revisa que de verdad "
+                     "quieras pegarla donde vas a usar esta salida."))
     return templates.TemplateResponse(request, "cert.html", ctx)
 
 

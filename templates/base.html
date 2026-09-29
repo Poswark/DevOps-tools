@@ -110,6 +110,17 @@
   .card h2.result-title { font-size: 18px; margin: 0; }
   .chk { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; margin-top: 14px; }
   .chk input { width: auto; }
+  .pre-wrap { position: relative; }
+  .copy-btn {
+    position: absolute; top: 8px; right: 8px; margin: 0;
+    background: #24252c; color: var(--muted); border: 1px solid #3a3b44;
+    border-radius: 3px; padding: 4px 10px; font-size: 11.5px; font-weight: 600;
+    letter-spacing: .04em; text-transform: uppercase; cursor: pointer;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+  }
+  .copy-btn:hover { background: #2d2e36; color: var(--ink); border-color: var(--red); }
+  .copy-btn.ok { color: var(--ok); border-color: var(--ok); background: rgba(53,212,136,.12); }
+  .copy-btn.fail { color: var(--err); border-color: var(--err); }
   footer { text-align: center; color: var(--muted); font-size: 12px; padding: 40px 0 10px; }
 </style>
 {% block head %}{% endblock %}
@@ -139,5 +150,59 @@
 {% block body %}{% endblock %}
 </div>
 <footer>Atlas · herramientas internas de DevOps</footer>
+<script>
+  // Agrega un boton "Copiar" a cada bloque de codigo de la app.
+  (function () {
+    function copiar(texto, btn) {
+      function marcar(clase, etiqueta) {
+        btn.classList.add(clase);
+        btn.textContent = etiqueta;
+        setTimeout(function () {
+          btn.classList.remove(clase);
+          btn.textContent = 'Copiar';
+        }, 1600);
+      }
+      // navigator.clipboard no existe sobre HTTP plano, que es como suele
+      // servirse esta app puertas adentro: por eso el fallback.
+      function respaldo() {
+        var ta = document.createElement('textarea');
+        ta.value = texto;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.top = '-1000px';
+        document.body.appendChild(ta);
+        ta.select();
+        try {
+          document.execCommand('copy') ? marcar('ok', 'Copiado') : marcar('fail', 'Error');
+        } catch (e) {
+          marcar('fail', 'Error');
+        }
+        document.body.removeChild(ta);
+      }
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(texto).then(function () {
+          marcar('ok', 'Copiado');
+        }, respaldo);
+      } else {
+        respaldo();
+      }
+    }
+
+    document.querySelectorAll('pre').forEach(function (pre) {
+      if (!pre.textContent.trim()) { return; }
+      var wrap = document.createElement('div');
+      wrap.className = 'pre-wrap';
+      pre.parentNode.insertBefore(wrap, pre);
+      wrap.appendChild(pre);
+
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'copy-btn';
+      btn.textContent = 'Copiar';
+      btn.addEventListener('click', function () { copiar(pre.textContent, btn); });
+      wrap.appendChild(btn);
+    });
+  })();
+</script>
 </body>
 </html>

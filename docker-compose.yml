@@ -10,6 +10,9 @@ services:
       WEB_CONCURRENCY: 2
       GUNICORN_TIMEOUT: 60
       LOG_LEVEL: info
+      NODE_IP: 10.10.10.10
+      NODE_NAME: host-node-1
+      EGRESS_IP: node1
     volumes:
       - ./logs:/app/logs
     restart: unless-stopped

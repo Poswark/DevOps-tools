@@ -52,7 +52,49 @@ def test_tcp_check_puerto_invalido():
     assert ok is False
     assert "No fue posible conectar" in msg
 
+import main   # junto a los demas imports; los tests usan main.origin_info
 
+
+def _sock():
+    s = MagicMock()
+    s.__enter__.return_value = s
+    s.getsockname.return_value = ("10.0.0.5", 53122)
+    s.getpeername.return_value = ("104.1.2.3", 443)
+    return s
+
+
+def test_tcp_check_incluye_origen_y_nodo(monkeypatch):
+    monkeypatch.setenv("NODE_IP", "10.1.2.3")
+    monkeypatch.setenv("NODE_NAME", "nodo-a")
+    monkeypatch.delenv("EGRESS_IP", raising=False)
+    with patch("main.socket.create_connection", return_value=_sock()):
+        ok, out = tcp_check("altoariari.com", 443)
+    assert ok
+    assert "Origen local (pod): 10.0.0.5:53122" in out
+    assert "Destino resuelto: 104.1.2.3" in out
+    assert "Nodo: 10.1.2.3 (nodo-a)" in out
+    assert "Egress" not in out
+
+
+def test_origin_info_sin_env_egress_ipv6(monkeypatch):
+    for v in ("NODE_IP", "NODE_NAME"):
+        monkeypatch.delenv(v, raising=False)
+    monkeypatch.setenv("EGRESS_IP", "200.1.1.1")
+    s = MagicMock()
+    s.getsockname.return_value = ("::1", 5000, 0, 0)
+    s.getpeername.return_value = ("::2", 443, 0, 0)
+    out = main.origin_info(s)
+    assert "Origen local (pod): ::1:5000" in out
+    assert "Nodo" not in out
+    assert "Egress configurado: 200.1.1.1" in out
+
+
+def test_origin_info_socket_sin_datos(monkeypatch):
+    monkeypatch.delenv("NODE_IP", raising=False)
+    monkeypatch.delenv("EGRESS_IP", raising=False)
+    s = MagicMock()
+    s.getsockname.side_effect = OSError("cerrado")
+    assert "no disponible" in main.origin_info(s)
 # ---------------------------------------------------------------- dns_check
 @patch("main.socket.getaddrinfo")
 def test_dns_check_success(mock_getaddrinfo):
